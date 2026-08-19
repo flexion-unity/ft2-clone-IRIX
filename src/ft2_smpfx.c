@@ -229,6 +229,7 @@ void pbSfxTriangle(void)
 	resumeAudio();
 
 	updateSampleEditorSample();
+	setSongModifiedFlag();
 }
 
 void pbSfxSaw(void)
@@ -280,6 +281,7 @@ void pbSfxSaw(void)
 	resumeAudio();
 
 	updateSampleEditorSample();
+	setSongModifiedFlag();
 }
 
 void pbSfxSine(void)
@@ -327,6 +329,7 @@ void pbSfxSine(void)
 	resumeAudio();
 
 	updateSampleEditorSample();
+	setSongModifiedFlag();
 }
 
 void pbSfxSquare(void)
@@ -384,6 +387,7 @@ void pbSfxSquare(void)
 	resumeAudio();
 
 	updateSampleEditorSample();
+	setSongModifiedFlag();
 }
 
 void drawFilterResonance(void)
@@ -654,6 +658,7 @@ void pbSfxLowPass(void)
 	fillSampleUndo(KEEP_SAMPLE_MARK);
 	applyResoFilter(s, &f);
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void pbSfxHighPass(void)
@@ -686,6 +691,7 @@ void pbSfxHighPass(void)
 	fillSampleUndo(KEEP_SAMPLE_MARK);
 	applyResoFilter(s, &f);
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void sfxPreviewFilter(uint32_t cutoff)
@@ -803,6 +809,7 @@ void pbSfxSubBass(void)
 	fillSampleUndo(KEEP_SAMPLE_MARK);
 	applyResoFilter(s, &f);
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void pbSfxAddBass(void)
@@ -966,6 +973,7 @@ void pbSfxAddBass(void)
 	resumeAudio();
 
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void pbSfxSubTreble(void)
@@ -980,6 +988,7 @@ void pbSfxSubTreble(void)
 	fillSampleUndo(KEEP_SAMPLE_MARK);
 	applyResoFilter(s, &f);
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void pbSfxAddTreble(void)
@@ -1143,6 +1152,7 @@ void pbSfxAddTreble(void)
 	resumeAudio();
 
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void pbSfxSetAmp(void)
@@ -1219,6 +1229,7 @@ void pbSfxSetAmp(void)
 	resumeAudio();
 
 	writeSample(FORCE_SAMPLE_REDRAW);
+	setSongModifiedFlag();
 }
 
 void pbSfxUndo(void)
@@ -1247,6 +1258,7 @@ void pbSfxUndo(void)
 
 		fixSample(s);
 		resumeAudio();
+		setSongModifiedFlag();
 	}
 	else
 	{
