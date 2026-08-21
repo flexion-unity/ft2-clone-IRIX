@@ -52,4 +52,3 @@ if(UNIX)
 endif()
 
 install(TARGETS ft2-clone RUNTIME DESTINATION bin)
-
