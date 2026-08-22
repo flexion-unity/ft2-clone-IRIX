@@ -2672,7 +2672,7 @@ static void zapInstrs(void)
 
 void pbZap(void)
 {
-	const int16_t choice = okBox(3, "System request", "Total devastation of the...", NULL);
+	const int16_t choice = okBox(3, "System request", "What do you want to clear?", NULL);
 
 	if (choice == 1) // zap all
 	{
