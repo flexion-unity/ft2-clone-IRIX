@@ -2674,16 +2674,16 @@ void pbZap(void)
 {
 	const int16_t choice = okBox(3, "System request", "What do you want to clear?", NULL);
 
-	if (choice == 1) // zap all
+	if (choice == 1) // "everything"
 	{
 		zapSong();
 		zapInstrs();
 	}
-	else if (choice == 2) // zap song
+	else if (choice == 2) // "song"
 	{
 		zapSong();
 	}
-	else if (choice == 3) // zap instruments
+	else if (choice == 3) // "instruments"
 	{
 		zapInstrs();
 	}
