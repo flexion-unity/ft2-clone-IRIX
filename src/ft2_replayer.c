@@ -47,7 +47,7 @@ const uint16_t *note2PeriodLUT = NULL;
 int16_t patternNumRows[MAX_PATTERNS];
 channel_t channel[MAX_CHANNELS];
 song_t song;
-instr_t *instr[128+4];
+instr_t *instr[128+4]; // (extra placeholder instruments needed)
 note_t *pattern[MAX_PATTERNS];
 // ----------------------------------
 

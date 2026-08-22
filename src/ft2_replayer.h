@@ -355,5 +355,5 @@ extern const uint16_t *note2PeriodLUT;
 extern int16_t patternNumRows[MAX_PATTERNS];
 extern channel_t channel[MAX_CHANNELS];
 extern song_t song;
-extern instr_t *instr[128+4];
+extern instr_t *instr[128+4]; // (extra placeholder instruments needed)
 extern note_t *pattern[MAX_PATTERNS];
