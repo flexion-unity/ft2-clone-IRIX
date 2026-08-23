@@ -43,6 +43,7 @@ bool setupWindowedSincTables(void)
 	sincKernel_t *k = sincKernelConfig;
 	for (int32_t i = 0; i < SINC_KERNELS; i++, k++)
 	{
+		// (+1 comes from the need for an additional phase for interpolation)
 		 fSinc8[i] = (float *)malloc((SINC_OVERSAMPLING+1) *  SINC8_TAPS * sizeof (float));
 		fSinc16[i] = (float *)malloc((SINC_OVERSAMPLING+1) * SINC16_TAPS * sizeof (float));
 
@@ -162,10 +163,9 @@ static bool calcPolyphaseSincLUT(float *fOut, int32_t numTaps, int32_t numPhases
 			*fOutPtr++ = (float)(tapBuffer[j] * tapMul);
 	}
 
-	// store inverted wrap-around taps after end of LUT (for phase interpolation)
-	float *fEnd = &fOut[numTaps * numPhases];
+	// store inverted copy of first phase after end of LUT (for interpolation look-up)
 	for (int32_t i = 0; i < numTaps; i++)
-		fEnd[i] = fOut[(numTaps-1) - i];
+		*fOutPtr++ = fOut[(numTaps-1) - i];
 
 	free(tapBuffer);
 	return true;
