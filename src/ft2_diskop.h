@@ -34,6 +34,7 @@ void changeFilenameExt(char *name, char *ext, int32_t nameMaxLen);
 void diskOpChangeFilenameExt(char *ext);
 void freeDiskOp(void);
 bool setupDiskOp(void);
+void resetDiskOpModuleFilename(void);
 void diskOpSetFilename(uint8_t type, UNICHAR *pathU);
 void sanitizeFilename(const char *src);
 bool diskOpGoParent(void);

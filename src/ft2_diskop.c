@@ -305,6 +305,14 @@ void freeDiskOp(void)
 	freeDirRecBuffer();
 }
 
+void resetDiskOpModuleFilename(void)
+{
+	modTmpFName[0] = '\0';
+	strcpy(modTmpFName, "untitled.xm");
+	updateCurrSongFilename(); // for window title
+	updateWindowTitle(true);
+}
+
 bool setupDiskOp(void)
 {
 	modTmpFName = (char *)malloc((PATH_MAX + 1) * sizeof (char));
@@ -331,7 +339,6 @@ bool setupDiskOp(void)
 	}
 
 	// clear first entry of strings
-	modTmpFName[0] = '\0';
 	insTmpFName[0] = '\0';
 	smpTmpFName[0] = '\0';
 	patTmpFName[0] = '\0';
@@ -343,7 +350,7 @@ bool setupDiskOp(void)
 	FReq_PatCurPathU[0] = 0;
 	FReq_TrkCurPathU[0] = 0;
 
-	strcpy(modTmpFName, "untitled.xm");
+	resetDiskOpModuleFilename();
 	strcpy(insTmpFName, "untitled.xi");
 	strcpy(smpTmpFName, "untitled.wav");
 	strcpy(patTmpFName, "untitled.xp");
@@ -351,9 +358,6 @@ bool setupDiskOp(void)
 
 	setupInitialPaths();
 	setDiskOpItem(0);
-
-	updateCurrSongFilename(); // for window title
-	updateWindowTitle(true);
 
 	return true;
 }

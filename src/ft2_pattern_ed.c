@@ -2642,7 +2642,7 @@ static void zapSong(void)
 	setScrollBarPos(SB_POS_ED, 0, DONT_TRIGGER_CALLBACK);
 	setScrollBarEnd(SB_POS_ED, (song.songLength - 1) + 5);
 
-	updateWindowTitle(true);
+	resetDiskOpModuleFilename(); // also updates the window title
 }
 
 static void zapInstrs(void)
