@@ -129,7 +129,7 @@ checkBox_t checkBoxes[NUM_CHECKBOXES] =
 
 	// WAV RENDERER BPM MODE
 	//x,   y,   w,   h,  funcOnUp
-	{ 62, 157,  159, 24, cbToggleWavRenderIndividualTracks }
+	{ 62, 157,  159, 12, cbToggleWavRenderIndividualTracks }
 };
 
 void drawCheckBox(uint16_t checkBoxID)
