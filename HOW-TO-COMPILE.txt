@@ -50,4 +50,11 @@ Compiled Windows/macOS binaries are always available at 16-bits.org/ft2.php
     make
  3. The resulting binary will be in "release/other/ft2-clone".
 
- Note: MIDI support (rtmidi) is disabled on IRIX.
+Notes: 
+MIDI support (rtmidi) is disabled on IRIX.
+
+SDL2 software / hardware rendering:
+ SGUG-RSE SDL2 does not support HW acceleration. The app will fall back to software rendering.
+ If you're on SGUG-RSE and want to use HW acceleration, install flx-SDL2 from flexions SGUG-RSE repo and build with:
+ cmake -DFT2_IRIX_USE_SGUGFLX_SDL2=ON ..
+ 

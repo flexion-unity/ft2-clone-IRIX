@@ -195,18 +195,28 @@ void flipFrame(void)
 	if (video.showFPSCounter)
 		drawFPSCounter();
 
-	SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
+#ifdef __sgi
+	/* SDL_UpdateTexture()+SDL_RenderPresent() is the dominant per-frame cost on this hardware/driver
+	   Only push a new frame to the screen every other call - sprite/input/audio-sync state elsewhere in the main
+	*/
+	static bool skipPresentFrame;
+	skipPresentFrame = !skipPresentFrame;
+	if (!skipPresentFrame)
+#endif
+	{
+		SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
 
-	// SDL 2.0.14 bug on Windows (?): This function consumes ever-increasing memory if the program is minimized
-	if (!minimized)
-		SDL_RenderClear(video.renderer);
+		// SDL 2.0.14 bug on Windows (?): This function consumes ever-increasing memory if the program is minimized
+		if (!minimized)
+			SDL_RenderClear(video.renderer);
 
-	if (video.useCustomRenderRect)
-		SDL_RenderCopy(video.renderer, video.texture, NULL, &video.renderRect);
-	else
-		SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
+		if (video.useCustomRenderRect)
+			SDL_RenderCopy(video.renderer, video.texture, NULL, &video.renderRect);
+		else
+			SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
 
-	SDL_RenderPresent(video.renderer);
+		SDL_RenderPresent(video.renderer);
+	}
 
 	eraseSprites();
 
@@ -932,6 +942,11 @@ bool setupWindow(void)
 	if (config.windowFlags & FORCE_VSYNC_OFF)
 		video.vsync60HzPresent = false;
 
+#ifdef __sgi
+	// Always use the manual ~60Hz wait on IRIX instead of trusting SDL vsync here.
+	video.vsync60HzPresent = false;
+#endif
+
 	video.window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		SCREEN_W * video.windowModeUpscaleFactor, SCREEN_H * video.windowModeUpscaleFactor,
 		windowFlags);
@@ -954,6 +969,13 @@ bool setupWindow(void)
 bool setupRenderer(void)
 {
 	uint32_t rendererFlags = 0;
+
+#ifdef FT2_SDL2_HAS_GL_RENDERER
+	// only requested when built against an SDL2 with an actual OpenGL renderer driver (see CMakeLists.txt)
+	rendererFlags |= SDL_RENDERER_ACCELERATED;
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+#endif
+
 	if (video.vsync60HzPresent)
 		rendererFlags |= SDL_RENDERER_PRESENTVSYNC;
 
@@ -969,6 +991,15 @@ bool setupRenderer(void)
 			video.renderer = SDL_CreateRenderer(video.window, -1, rendererFlags);
 		}
 
+#ifdef FT2_SDL2_HAS_GL_RENDERER
+		if (video.renderer == NULL)
+		{
+			// GL renderer unavailable for some reason, fall back to whatever SDL2 picks by default
+			rendererFlags &= ~SDL_RENDERER_ACCELERATED;
+			video.renderer = SDL_CreateRenderer(video.window, -1, rendererFlags);
+		}
+#endif
+
 		if (video.renderer == NULL)
 		{
 			showErrorMsgBox("Couldn't create SDL renderer:\n\"%s\"\n\nIs your GPU (+ driver) too old?",
@@ -978,6 +1009,18 @@ bool setupRenderer(void)
 	}
 
 	SDL_SetRenderDrawBlendMode(video.renderer, SDL_BLENDMODE_NONE);
+
+#ifdef FT2_SDL2_HAS_GL_RENDERER
+	if (!video.vsync60HzPresent)
+	{
+		// SDL_CreateRenderer() is supposed to disable the swap interval itself when
+		// SDL_RENDERER_PRESENTVSYNC isn't requested, but force it explicitly here too in
+		// case that call silently fails on a GLX driver that only advertises the older
+		// SGI_swap_control extension (which has no way to represent "disabled") instead
+		// of EXT_swap_control, leaving the default swap behavior in place otherwise.
+		SDL_GL_SetSwapInterval(0);
+	}
+#endif
 
 	if (!recreateTexture())
 	{
