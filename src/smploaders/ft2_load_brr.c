@@ -124,6 +124,9 @@ bool loadBRR(FILE *f, uint32_t filesize)
 	{
 		uint16_t loopStartBlock;
 		fread(&loopStartBlock, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		loopStartBlock = SDL_SwapLE16(loopStartBlock); // BRR is a SNES-native (little-endian) format
+#endif
 		loopStart = BRR_RATIO(loopStartBlock);
 		blockBytes -= 2;
 	}

@@ -51,6 +51,26 @@ s3mHdr_t;
 #pragma pack(pop)
 #endif
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapS3mHdr(s3mHdr_t *h)
+{
+	h->numOrders = (int16_t)SDL_SwapLE16((uint16_t)h->numOrders);
+	h->numSamples = (int16_t)SDL_SwapLE16((uint16_t)h->numSamples);
+	h->numPatterns = (int16_t)SDL_SwapLE16((uint16_t)h->numPatterns);
+	h->flags = SDL_SwapLE16(h->flags);
+	h->ffi = SDL_SwapLE16(h->ffi);
+}
+
+static inline void swapS3mSmpHdr(s3mSmpHdr_t *s)
+{
+	s->offsetInFile = SDL_SwapLE16(s->offsetInFile);
+	s->length = (int32_t)SDL_SwapLE32((uint32_t)s->length);
+	s->loopStart = (int32_t)SDL_SwapLE32((uint32_t)s->loopStart);
+	s->loopEnd = (int32_t)SDL_SwapLE32((uint32_t)s->loopEnd);
+	s->midCFreq = (int32_t)SDL_SwapLE32((uint32_t)s->midCFreq);
+}
+#endif
+
 bool loadS3M(FILE *f, uint32_t filesize)
 {
 	uint8_t alastnfo[32], alastefx[32], alastvibnfo[32], alastGxxInstr[32];
@@ -73,6 +93,10 @@ bool loadS3M(FILE *f, uint32_t filesize)
 		loaderMsgBox("Error: This file is either not a module, or is not supported.");
 		return false;
 	}
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapS3mHdr(&header);
+#endif
 
 	if (header.numSamples > MAX_INST || header.numOrders > MAX_ORDERS || header.numPatterns > MAX_PATTERNS ||
 		header.type != 16 || header.ffi < 1 || header.ffi > 2)
@@ -133,6 +157,9 @@ bool loadS3M(FILE *f, uint32_t filesize)
 			return false;
 		}
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		tmpU16 = SDL_SwapLE16(tmpU16);
+#endif
 		sampleOffsets[i] = tmpU16 << 4;
 	}
 
@@ -145,6 +172,9 @@ bool loadS3M(FILE *f, uint32_t filesize)
 			return false;
 		}
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		tmpU16 = SDL_SwapLE16(tmpU16);
+#endif
 		patternOffsets[i] = tmpU16 << 4;
 	}
 
@@ -171,6 +201,10 @@ bool loadS3M(FILE *f, uint32_t filesize)
 			loaderMsgBox("General I/O error during loading! Is the file in use?");
 			return false;
 		}
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		packedPattLen = SDL_SwapLE16(packedPattLen);
+#endif
 
 		if (packedPattLen > 0 && packedPattLen <= 12288)
 		{
@@ -518,6 +552,10 @@ bool loadS3M(FILE *f, uint32_t filesize)
 		}
 		s3mSmpHdr_t *srcSmp = &smpHdr;
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapS3mSmpHdr(srcSmp);
+#endif
+
 		memcpy(songTmp.instrName[1+i], srcSmp->name, 22);
 
 		if (srcSmp->type == 2)
@@ -589,9 +627,16 @@ bool loadS3M(FILE *f, uint32_t filesize)
 				fseek(f, offsetInFile, SEEK_SET);
 
 				if (sample16Bit)
+				{
 					fread(s->dataPtr, 2, s->length, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+					swapSampleData16(s->dataPtr, s->length); // sample data is stored little-endian
+#endif
+				}
 				else
+				{
 					fread(s->dataPtr, 1, s->length, f);
+				}
 
 				if (header.ffi == 2) // unsigned samples, convert to signed
 				{

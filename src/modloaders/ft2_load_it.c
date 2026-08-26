@@ -112,6 +112,76 @@ itSmpHdr_t;
 #pragma pack(pop)
 #endif
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapItHdr(itHdr_t *h)
+{
+	h->rowHighlight = SDL_SwapLE16(h->rowHighlight);
+	h->ordNum = SDL_SwapLE16(h->ordNum);
+	h->insNum = SDL_SwapLE16(h->insNum);
+	h->smpNum = SDL_SwapLE16(h->smpNum);
+	h->patNum = SDL_SwapLE16(h->patNum);
+	h->cwtv = SDL_SwapLE16(h->cwtv);
+	h->cmwt = SDL_SwapLE16(h->cmwt);
+	h->flags = SDL_SwapLE16(h->flags);
+	h->special = SDL_SwapLE16(h->special);
+	h->msgLen = SDL_SwapLE16(h->msgLen);
+	h->msgOffs = SDL_SwapLE32(h->msgOffs);
+}
+
+static inline void swapItEnv(env_t *e)
+{
+	for (int32_t i = 0; i < 25; i++)
+		e->nodePoints[i].tick = SDL_SwapLE16(e->nodePoints[i].tick);
+}
+
+static inline void swapItInsHdr(itInsHdr_t *ih)
+{
+	ih->fadeOut = SDL_SwapLE16(ih->fadeOut);
+	ih->trackerVer = SDL_SwapLE16(ih->trackerVer);
+	ih->midiBank = SDL_SwapLE16(ih->midiBank);
+
+	for (int32_t i = 0; i < 120; i++)
+		ih->smpNoteTable[i] = SDL_SwapLE16(ih->smpNoteTable[i]);
+
+	swapItEnv(&ih->volEnv);
+	swapItEnv(&ih->panEnv);
+	swapItEnv(&ih->pitchEnv);
+}
+
+static inline void swapItOldInsHdr(itOldInsHdr_t *ih)
+{
+	ih->fadeOut = SDL_SwapLE16(ih->fadeOut);
+	ih->trackerVer = SDL_SwapLE16(ih->trackerVer);
+
+	for (int32_t i = 0; i < 120; i++)
+		ih->smpNoteTable[i] = SDL_SwapLE16(ih->smpNoteTable[i]);
+
+	for (int32_t i = 0; i < 25; i++)
+		ih->volEnvPoints[i] = SDL_SwapLE16(ih->volEnvPoints[i]);
+}
+
+static inline void swapItSmpHdr(itSmpHdr_t *sh)
+{
+	sh->length = SDL_SwapLE32(sh->length);
+	sh->loopBegin = SDL_SwapLE32(sh->loopBegin);
+	sh->loopEnd = SDL_SwapLE32(sh->loopEnd);
+	sh->c5Speed = SDL_SwapLE32(sh->c5Speed);
+	sh->sustainLoopBegin = SDL_SwapLE32(sh->sustainLoopBegin);
+	sh->sustainLoopEnd = SDL_SwapLE32(sh->sustainLoopEnd);
+	sh->offsetInFile = SDL_SwapLE32(sh->offsetInFile);
+}
+#endif
+
+static inline uint32_t readLE32Unaligned(const uint8_t *p)
+{
+	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static inline uint16_t readLE16Unaligned(const uint8_t *p)
+{
+	return (uint16_t)(p[0] | (p[1] << 8));
+}
+
 static uint8_t volPortaConv[9] = { 1, 4, 8, 16, 32, 64, 96, 128, 255 };
 static uint32_t insOffs[256], smpOffs[256], patOffs[256];
 static itSmpHdr_t *srcSmp, smpHdrs[256];
@@ -132,6 +202,10 @@ bool loadIT(FILE *f, uint32_t filesize)
 	}
 
 	fread(&header, sizeof (header), 1, f);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapItHdr(&header);
+#endif
 
 	if (header.ordNum > 257 || header.insNum > 256 || header.smpNum > 256 || header.patNum > 256)
 	{
@@ -176,10 +250,22 @@ bool loadIT(FILE *f, uint32_t filesize)
 	fread(smpOffs, 4, header.smpNum, f);
 	fread(patOffs, 4, header.patNum, f);
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	for (int32_t i = 0; i < header.insNum; i++)
+		insOffs[i] = SDL_SwapLE32(insOffs[i]);
+	for (int32_t i = 0; i < header.smpNum; i++)
+		smpOffs[i] = SDL_SwapLE32(smpOffs[i]);
+	for (int32_t i = 0; i < header.patNum; i++)
+		patOffs[i] = SDL_SwapLE32(patOffs[i]);
+#endif
+
 	for (int32_t i = 0; i < header.smpNum; i++)
 	{
 		fseek(f, smpOffs[i], SEEK_SET);
 		fread(&smpHdrs[i], sizeof (itSmpHdr_t), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapItSmpHdr(&smpHdrs[i]);
+#endif
 	}
 
 	if (!songUsesInstruments) // read samples (as instruments)
@@ -223,6 +309,10 @@ bool loadIT(FILE *f, uint32_t filesize)
 		{
 			fseek(f, insOffs[i], SEEK_SET);
 			fread(&itIns, sizeof (itIns), 1, f);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			swapItOldInsHdr(&itIns);
+#endif
 
 			if (!allocateTmpInstr(1 + i))
 			{
@@ -364,6 +454,10 @@ bool loadIT(FILE *f, uint32_t filesize)
 		{
 			fseek(f, insOffs[i], SEEK_SET);
 			fread(&itIns, sizeof (itIns), 1, f);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			swapItInsHdr(&itIns);
+#endif
 
 			if (!allocateTmpInstr(1 + i))
 			{
@@ -546,6 +640,10 @@ bool loadIT(FILE *f, uint32_t filesize)
 		fread(&length, 2, 1, f);
 		fread(&numRows, 2, 1, f);
 		fseek(f, 4, SEEK_CUR);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		length = SDL_SwapLE16(length);
+		numRows = SDL_SwapLE16(numRows);
+#endif
 
 		numRows = MIN(numRows, MAX_PATT_LEN);
 		if (numRows == 0)
@@ -1220,7 +1318,7 @@ static void decompress16BitData(int16_t *dst, const uint8_t *src, uint32_t block
 	blockLength >>= 1;
 	while (blockLength != 0)
 	{
-		bytes32 = (*(uint32_t *)src) >> bitsRead;
+		bytes32 = readLE32Unaligned(src) >> bitsRead;
 
 		bitsRead += bitDepth;
 		src += bitsRead >> 3;
@@ -1310,7 +1408,7 @@ static void decompress8BitData(int8_t *dst, const uint8_t *src, uint32_t blockLe
 
 	while (blockLength != 0)
 	{
-		bytes16 = (*(uint16_t *)src) >> bitsRead;
+		bytes16 = readLE16Unaligned(src) >> bitsRead;
 
 		bitsRead += bitDepth;
 		src += (bitsRead >> 3);
@@ -1399,6 +1497,9 @@ static bool loadCompressed16BitSample(FILE *f, sample_t *s, bool deltaEncoded)
 
 		uint16_t packedLen;
 		fread(&packedLen, sizeof (uint16_t), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		packedLen = SDL_SwapLE16(packedLen);
+#endif
 		fread(tmpBuffer, 1, packedLen, f);
 
 		decompress16BitData((int16_t *)dstPtr, tmpBuffer, bytesToUnpack);
@@ -1436,6 +1537,9 @@ static bool loadCompressed8BitSample(FILE *f, sample_t *s, bool deltaEncoded)
 
 		uint16_t packedLen;
 		fread(&packedLen, sizeof (uint16_t), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		packedLen = SDL_SwapLE16(packedLen);
+#endif
 		fread(tmpBuffer, 1, packedLen, f);
 
 		decompress8BitData(dstPtr, tmpBuffer, bytesToUnpack);
@@ -1536,9 +1640,16 @@ static bool loadSample(FILE *f, sample_t *s, itSmpHdr_t *is)
 	else
 	{
 		if (sampleIs16Bit)
+		{
 			fread(s->dataPtr, 2, s->length, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			swapSampleData16(s->dataPtr, s->length); // sample data is stored little-endian
+#endif
+		}
 		else
+		{
 			fread(s->dataPtr, 1, s->length, f);
+		}
 
 		if (!signedSamples)
 		{

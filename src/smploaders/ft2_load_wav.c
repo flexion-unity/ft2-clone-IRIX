@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include "../ft2_header.h"
 #include "../ft2_mouse.h"
 #include "../ft2_audio.h"
@@ -23,6 +24,33 @@ enum
 };
 
 static bool wavIsStereo(FILE *f);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapSampleData32(int8_t *data, int32_t numSamples)
+{
+	uint32_t *p = (uint32_t *)data;
+	for (int32_t i = 0; i < numSamples; i++)
+		p[i] = SDL_SwapLE32(p[i]);
+}
+
+static inline float swapFloatLE(float f)
+{
+	uint32_t u;
+	memcpy(&u, &f, sizeof (u));
+	u = SDL_SwapLE32(u);
+	memcpy(&f, &u, sizeof (f));
+	return f;
+}
+
+static inline double swapDoubleLE(double d)
+{
+	uint64_t u;
+	memcpy(&u, &d, sizeof (u));
+	u = SDL_SwapLE64(u);
+	memcpy(&d, &u, sizeof (d));
+	return d;
+}
+#endif
 
 bool loadWAV(FILE *f, uint32_t filesize)
 {
@@ -56,6 +84,10 @@ bool loadWAV(FILE *f, uint32_t filesize)
 		uint32_t chunkID, chunkSize;
 		fread(&chunkID, 4, 1, f); if (feof(f)) break;
 		fread(&chunkSize, 4, 1, f); if (feof(f)) break;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		chunkID = SDL_SwapLE32(chunkID);
+		chunkSize = SDL_SwapLE32(chunkSize);
+#endif
 
 		uint32_t endOfChunk = (ftell(f) + chunkSize) + (chunkSize & 1);
 		switch (chunkID)
@@ -79,6 +111,9 @@ bool loadWAV(FILE *f, uint32_t filesize)
 				if (chunkSize >= 4)
 				{
 					fread(&chunkID, 4, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+					chunkID = SDL_SwapLE32(chunkID);
+#endif
 					if (chunkID == 0x4F464E49) // "INFO"
 					{
 						bytesRead = 0;
@@ -86,6 +121,10 @@ bool loadWAV(FILE *f, uint32_t filesize)
 						{
 							fread(&chunkID, 4, 1, f);
 							fread(&chunkSize, 4, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+							chunkID = SDL_SwapLE32(chunkID);
+							chunkSize = SDL_SwapLE32(chunkSize);
+#endif
 
 							switch (chunkID)
 							{
@@ -141,6 +180,12 @@ bool loadWAV(FILE *f, uint32_t filesize)
 	fread(&sampleRate,  4, 1, f);
 	fseek(f, 6, SEEK_CUR); // unneeded
 	fread(&bitsPerSample, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	audioFormat = SDL_SwapLE16(audioFormat);
+	numChannels = SDL_SwapLE16(numChannels);
+	sampleRate = SDL_SwapLE32(sampleRate);
+	bitsPerSample = SDL_SwapLE16(bitsPerSample);
+#endif
 
 	sampleLength = dataLen;
 
@@ -148,6 +193,9 @@ bool loadWAV(FILE *f, uint32_t filesize)
 	{
 		fseek(f, 8, SEEK_CUR);
 		fread(&audioFormat, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		audioFormat = SDL_SwapLE16(audioFormat);
+#endif
 	}
 	// ---------------------------
 
@@ -265,6 +313,9 @@ bool loadWAV(FILE *f, uint32_t filesize)
 			loaderMsgBox("General I/O error during loading! Is the file in use?");
 			return false;
 		}
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapSampleData16(s->dataPtr, sampleLength); // sample data is stored little-endian
+#endif
 
 		audioDataS16 = (int16_t *)s->dataPtr;
 
@@ -404,6 +455,9 @@ bool loadWAV(FILE *f, uint32_t filesize)
 		}
 
 		audioDataS32 = (int32_t *)s->dataPtr;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapSampleData32(s->dataPtr, sampleLength); // sample data is stored little-endian
+#endif
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -473,6 +527,10 @@ bool loadWAV(FILE *f, uint32_t filesize)
 		}
 
 		fAudioDataFloat = (float *)s->dataPtr;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		for (i = 0; i < sampleLength; i++)
+			fAudioDataFloat[i] = swapFloatLE(fAudioDataFloat[i]); // sample data is stored little-endian
+#endif
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -539,6 +597,10 @@ bool loadWAV(FILE *f, uint32_t filesize)
 		}
 
 		dAudioDataDouble = (double *)s->dataPtr;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		for (i = 0; i < sampleLength; i++)
+			dAudioDataDouble[i] = swapDoubleLE(dAudioDataDouble[i]); // sample data is stored little-endian
+#endif
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -610,6 +672,9 @@ bool loadWAV(FILE *f, uint32_t filesize)
 		fseek(f, smplPtr+28, SEEK_SET); // seek to first wanted byte
 
 		fread(&numLoops, 4, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		numLoops = SDL_SwapLE32(numLoops);
+#endif
 		if (numLoops == 1)
 		{
 			fseek(f, 4+4, SEEK_CUR); // skip "samplerData" and "identifier"
@@ -617,6 +682,11 @@ bool loadWAV(FILE *f, uint32_t filesize)
 			fread(&loopType, 4, 1, f);
 			fread(&loopStart, 4, 1, f);
 			fread(&loopEnd, 4, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			loopType = SDL_SwapLE32(loopType);
+			loopStart = SDL_SwapLE32(loopStart);
+			loopEnd = SDL_SwapLE32(loopEnd);
+#endif
 
 			loopEnd++;
 			if (loopEnd <= sampleLength)
@@ -637,11 +707,17 @@ bool loadWAV(FILE *f, uint32_t filesize)
 
 		fseek(f, xtraPtr, SEEK_SET);
 		fread(&xtraFlags, 4, 1, f); // flags
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		xtraFlags = SDL_SwapLE32(xtraFlags);
+#endif
 
 		// panning (0..256)
 		if (xtraFlags & 0x20) // set panning flag
 		{
 			fread(&tmpPan, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			tmpPan = SDL_SwapLE16(tmpPan);
+#endif
 			if (tmpPan > 255)
 				tmpPan = 255;
 
@@ -655,6 +731,9 @@ bool loadWAV(FILE *f, uint32_t filesize)
 
 		// volume (0..256)
 		fread(&tmpVol, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		tmpVol = SDL_SwapLE16(tmpVol);
+#endif
 		if (tmpVol > 256)
 			tmpVol = 256;
 
@@ -704,6 +783,10 @@ static bool wavIsStereo(FILE *f)
 	{
 		fread(&chunkID, 4, 1, f); if (feof(f)) break;
 		fread(&chunkSize, 4, 1, f); if (feof(f)) break;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		chunkID = SDL_SwapLE32(chunkID);
+		chunkSize = SDL_SwapLE32(chunkSize);
+#endif
 
 		int32_t endOfChunk = (ftell(f) + chunkSize) + (chunkSize & 1);
 		switch (chunkID)
@@ -730,6 +813,9 @@ static bool wavIsStereo(FILE *f)
 
 	fseek(f, fmtPtr + 2, SEEK_SET);
 	fread(&numChannels, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	numChannels = SDL_SwapLE16(numChannels);
+#endif
 
 	fseek(f, oldPos, SEEK_SET);
 	return (numChannels == 2);
