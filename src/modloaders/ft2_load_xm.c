@@ -41,6 +41,10 @@ bool loadXM(FILE *f, uint32_t filesize)
 		return false;
 	}
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapXmHdr(&header);
+#endif
+
 	if (header.version < 0x0102 || header.version > 0x0104)
 	{
 		loaderMsgBox("Error loading XM: Unsupported file version (v%01X.%02X).",
@@ -194,6 +198,9 @@ static bool loadInstrHeader(FILE *f, int32_t insNum)
 	memset(&ih, 0, sizeof (ih));
 
 	fread(&readSize, 4, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	readSize = SDL_SwapLE32(readSize);
+#endif
 	fseek(f, -4, SEEK_CUR);
 
 	// yes, some XMs can have a header size of 0, and it usually means 263 bytes (INSTR_HEADER_SIZE)
@@ -207,6 +214,10 @@ static bool loadInstrHeader(FILE *f, int32_t insNum)
 	}
 
 	fread(&ih, readSize, 1, f); // read instrument header
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapXmInsHdr(&ih); // does not touch ih.smp[], see below
+#endif
 
 	// FT2 bugfix: skip instrument header data if instrSize is above INSTR_HEADER_SIZE
 	if (ih.instrSize > INSTR_HEADER_SIZE)
@@ -267,6 +278,11 @@ static bool loadInstrHeader(FILE *f, int32_t insNum)
 			return false;
 		}
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		for (int32_t j = 0; j < sampleHeadersToRead; j++)
+			swapXmSmpHdr(&ih.smp[j]);
+#endif
+
 		// if instrument contains more than 16 sample headers (unsupported), skip them
 		if (ih.numSamples > MAX_SMP_PER_INST) // can only be 0..32 at this point
 		{
@@ -274,6 +290,9 @@ static bool loadInstrHeader(FILE *f, int32_t insNum)
 			for (int32_t j = 0; j < samplesToSkip; j++)
 			{
 				fread(&extraSampleLengths[j], 4, 1, f); // used for skipping data in loadInstrSample()
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+				extraSampleLengths[j] = SDL_SwapLE32(extraSampleLengths[j]);
+#endif
 				fseek(f, sizeof (xmSmpHdr_t) - 4, SEEK_CUR);
 			}
 		}
@@ -369,9 +388,16 @@ static bool loadInstrSample(FILE *f, int32_t insNum)
 				else
 				{
 					if (sample16Bit)
+					{
 						fread(s->dataPtr, 2, s->length, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+						swapSampleData16(s->dataPtr, s->length); // sample data is 16-bit deltas, stored little-endian
+#endif
+					}
 					else
+					{
 						fread(s->dataPtr, 1, s->length, f);
+					}
 
 					const int32_t sampleLengthInBytes = SAMPLE_LENGTH_BYTES(s);
 					if (sampleLengthInBytes < lengthInFile)
@@ -420,6 +446,10 @@ static bool loadPatterns(FILE *f, int32_t numPatterns, uint16_t xmVersion)
 		if (fread(&ph.headerSize, 4, 1, f) != 1)
 			goto pattCorrupt;
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		ph.headerSize = (int32_t)SDL_SwapLE32((uint32_t)ph.headerSize);
+#endif
+
 		if (fread(&ph.type, 1, 1, f) != 1)
 			goto pattCorrupt;
 
@@ -433,6 +463,10 @@ static bool loadPatterns(FILE *f, int32_t numPatterns, uint16_t xmVersion)
 			if (fread(&ph.dataSize, 2, 1, f) != 1)
 				goto pattCorrupt;
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			ph.dataSize = SDL_SwapLE16(ph.dataSize);
+#endif
+
 			ph.numRows = tmpLen + 1; // +1 in v1.02
 
 			if (ph.headerSize > 8)
@@ -445,6 +479,11 @@ static bool loadPatterns(FILE *f, int32_t numPatterns, uint16_t xmVersion)
 
 			if (fread(&ph.dataSize, 2, 1, f) != 1)
 				goto pattCorrupt;
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			ph.numRows = (int16_t)SDL_SwapLE16((uint16_t)ph.numRows);
+			ph.dataSize = SDL_SwapLE16(ph.dataSize);
+#endif
 
 			if (ph.headerSize > 9)
 				fseek(f, ph.headerSize - 9, SEEK_CUR);
