@@ -10,8 +10,12 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR (CMAKE_CXX_COMPILER_ID MATCHES "GN
 	add_compile_options(-ffast-math)
 endif()
 
+set(FT2_IRIX FALSE)
+if(CMAKE_SYSTEM_NAME MATCHES "IRIX")
+	set(FT2_IRIX TRUE)
+endif()
+
 file(GLOB ft2-clone_SRC
-	"${ft2-clone_SOURCE_DIR}/src/rtmidi/*.cpp"
 	"${ft2-clone_SOURCE_DIR}/src/*.c"
 	"${ft2-clone_SOURCE_DIR}/src/gfxdata/*.c"
 	"${ft2-clone_SOURCE_DIR}/src/mixer/*.c"
@@ -19,6 +23,11 @@ file(GLOB ft2-clone_SRC
 	"${ft2-clone_SOURCE_DIR}/src/modloaders/*.c"
 	"${ft2-clone_SOURCE_DIR}/src/smploaders/*.c"
 )
+
+if(NOT FT2_IRIX)
+	file(GLOB ft2-clone_MIDI_SRC "${ft2-clone_SOURCE_DIR}/src/rtmidi/*.cpp")
+	list(APPEND ft2-clone_SRC ${ft2-clone_MIDI_SRC})
+endif()
 
 add_executable(ft2-clone ${ft2-clone_SRC})
 target_include_directories(ft2-clone SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -30,7 +39,10 @@ endif()
 
 find_package(Threads REQUIRED)
 target_link_libraries(ft2-clone PRIVATE m Threads::Threads ${SDL2_LIBRARIES})
-target_compile_definitions(ft2-clone PRIVATE HAS_MIDI)
+
+if(NOT FT2_IRIX)
+	target_compile_definitions(ft2-clone PRIVATE HAS_MIDI)
+endif()
 
 if(UNIX)
 	if(APPLE)
@@ -40,12 +52,12 @@ if(UNIX)
 		find_library(ICONV iconv REQUIRED)
 		target_link_libraries(ft2-clone PRIVATE ${COREAUDIO} ${COREMIDI} ${COREFOUNDATION} ${ICONV})
 		target_compile_definitions(ft2-clone PRIVATE __MACOSX_CORE__)
+	elseif(FT2_IRIX)
+		# No ALSA, no MIDI backend on IRIX.
+		# Add iconv for IRIX
+		find_library(ICONV iconv REQUIRED)
+		target_link_libraries(ft2-clone PRIVATE ${ICONV})
 	else()
-		# musl systems need musl-fts installed, others have it with glibc
-		find_library(FTS fts)
-		if(FTS)
-			target_link_libraries(ft2-clone PRIVATE fts)
-		endif()
 		target_link_libraries(ft2-clone PRIVATE asound)
 		target_compile_definitions(ft2-clone PRIVATE __LINUX_ALSA__)
 	endif()

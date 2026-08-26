@@ -137,18 +137,18 @@ static void readHelp(void) // this is a bit messy...
 				continue;
 			}
 
-			if (*(uint16_t *)s == 0x4C40) // @L - "big font"
+			if (s[0] == '@' && s[1] == 'L') // @L - "big font"
 			{
 				addText(&tempText[textLine], currColumn, currColor, s2);
 				s += 2;
 
-				if (*(uint16_t *)s == 0x5840) // @X - "change X position"
+				if (s[0] == '@' && s[1] == 'X') // @X - "change X position"
 				{
 					currColumn = controlCodeToNum(&s[2]);
 					s += 5;
 				}
 
-				if (*(uint16_t *)s == 0x4340) // @C - "change color
+				if (s[0] == '@' && s[1] == 'C') // @C - "change color
 				{
 					currColor = (uint8_t)controlCodeToNum(&s[2]);
 					currColor = (currColor < 2) ? PAL_FORGRND : PAL_BUTTONS;
@@ -175,13 +175,13 @@ static void readHelp(void) // this is a bit messy...
 					s++;
 				}
 
-				if (*(uint16_t *)s == 0x5840) // @X - "set X position (relative to help X start)"
+				if (s[0] == '@' && s[1] == 'X') // @X - "set X position (relative to help X start)"
 				{
 					currColumn = controlCodeToNum(&s[2]);
 					s += 5;
 				}
 
-				if (*(uint16_t *)s == 0x4340) // @C - "change color"
+				if (s[0] == '@' && s[1] == 'C') // @C - "change color"
 				{
 					currColor = (uint8_t)controlCodeToNum(&s[2]);
 					currColor = (currColor < 2) ? PAL_FORGRND : PAL_BUTTONS;
@@ -208,7 +208,7 @@ static void readHelp(void) // this is a bit messy...
 					while (s[i] != ' ' && i < sLen) i++;
 					i++;
 
-					if (*(uint16_t *)s == 0x5440) // @T - "set absolute X position (in the middle of text)"
+					if (s[0] == '@' && s[1] == 'T') // @T - "set absolute X position (in the middle of text)"
 					{
 						k = controlCodeToNum(&s[2]);
 						s += 5; sLen -= 5;

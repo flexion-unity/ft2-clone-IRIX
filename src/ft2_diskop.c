@@ -17,7 +17,6 @@
 #else
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fts.h> // for fts_open() and stuff in recursiveDelete()
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -504,48 +503,52 @@ bool fileExistsAnsi(char *str)
 
 static bool deleteDirRecursive(UNICHAR *strU)
 {
-	FTSENT *curr;
-	char *files[] = { (char *)(strU), NULL };
-
-	FTS *ftsp = fts_open(files, FTS_NOCHDIR | FTS_PHYSICAL | FTS_XDEV, NULL);
-	if (!ftsp)
+	struct stat s;
+	if (lstat(strU, &s) != 0)
 		return false;
 
-	bool ret = true;
-	while ((curr = fts_read(ftsp)))
+	// lstat() reports the link itself, so a symlink never satisfies S_ISDIR here
+	if (S_ISDIR(s.st_mode))
 	{
-		switch (curr->fts_info)
+		DIR *dir = opendir(strU);
+		if (dir == NULL)
+			return false;
+
+		bool ret = true;
+
+		struct dirent *entry;
+		while ((entry = readdir(dir)) != NULL)
 		{
-			default:
-			case FTS_NS:
-			case FTS_DNR:
-			case FTS_ERR:
-				ret = false;
-			break;
+			if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+				continue;
 
-			case FTS_D:
-			case FTS_DC:
-			case FTS_DOT:
-			case FTS_NSOK:
-				break;
-
-			case FTS_DP:
-			case FTS_F:
-			case FTS_SL:
-			case FTS_SLNONE:
-			case FTS_DEFAULT:
+			const size_t pathLen = strlen(strU) + 1 + strlen(entry->d_name) + 1;
+			char *childPathU = (char *)malloc(pathLen);
+			if (childPathU == NULL)
 			{
-				if (remove(curr->fts_accpath) < 0)
-					ret = false;
+				ret = false;
+				continue;
 			}
-			break;
+
+			snprintf(childPathU, pathLen, "%s/%s", strU, entry->d_name);
+
+			if (!deleteDirRecursive(childPathU))
+				ret = false;
+
+			free(childPathU);
 		}
+
+		closedir(dir);
+
+		if (rmdir(strU) != 0)
+			ret = false;
+
+		return ret;
 	}
-
-	if (ftsp != NULL)
-		fts_close(ftsp);
-
-	return ret;
+	else
+	{
+		return (remove(strU) == 0);
+	}
 }
 
 static bool makeDirAnsi(char *str)
@@ -1383,7 +1386,7 @@ static int8_t findFirst(DirRec *searchRec)
 	int64_t fSize;
 #endif
 
-#if defined(__sun) || defined(sun)
+#if defined(__sun) || defined(sun) || defined(__sgi)
 	struct stat s;
 #endif
 
@@ -1415,15 +1418,15 @@ static int8_t findFirst(DirRec *searchRec)
 
 	searchRec->filesize = 0;
 
-#if defined(__sun) || defined(sun)
+#if defined(__sun) || defined(sun) || defined(__sgi)
 	stat(fData->d_name, &s);
-	searchRec->isDir = (s.st_mode != S_IFDIR) ? true : false;
+	searchRec->isDir = ((s.st_mode & S_IFMT) == S_IFDIR) ? true : false;
 #else
 	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 #endif
 
-#if defined(__sun) || defined(sun)
-	if (s.st_mode == S_IFLNK)
+#if defined(__sun) || defined(sun) || defined(__sgi)
+	if ((s.st_mode & S_IFMT) == S_IFLNK)
 #else
 	if (fData->d_type == DT_UNKNOWN || fData->d_type == DT_LNK)
 #endif
@@ -1472,7 +1475,7 @@ static int8_t findNext(DirRec *searchRec)
 	int64_t fSize;
 #endif
 
-#if defined(__sun) || defined(sun)
+#if defined(__sun) || defined(sun) || defined(__sgi)
 	struct stat s;
 #endif
 
@@ -1498,15 +1501,15 @@ static int8_t findNext(DirRec *searchRec)
 
 	searchRec->filesize = 0;
 
-#if defined(__sun) || defined(sun)
+#if defined(__sun) || defined(sun) || defined(__sgi)
 	stat(fData->d_name, &s);
-	searchRec->isDir = (s.st_mode != S_IFDIR) ? true : false;
+	searchRec->isDir = ((s.st_mode & S_IFMT) == S_IFDIR) ? true : false;
 #else
 	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 #endif
 
-#if defined(__sun) || defined(sun)
-	if (s.st_mode == S_IFLNK)
+#if defined(__sun) || defined(sun) || defined(__sgi)
+	if ((s.st_mode & S_IFMT) == S_IFLNK)
 #else
 	if (fData->d_type == DT_UNKNOWN || fData->d_type == DT_LNK)
 #endif

@@ -856,7 +856,15 @@ void readMouseXY(void)
 		return;
 	}
 
-	if (video.fullscreen)
+#ifdef __sgi
+	// SDL_GetGlobalMouseState() doesn't track the pointer correctly on IRIX 
+	// so just use the window-relative query in both fullscreen and windowed mode here.
+	const bool useWindowRelativeMouse = true;
+#else
+	const bool useWindowRelativeMouse = video.fullscreen;
+#endif
+
+	if (useWindowRelativeMouse)
 	{
 		mouse.buttonState = SDL_GetMouseState(&mx, &my);
 

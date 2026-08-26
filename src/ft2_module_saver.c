@@ -97,7 +97,15 @@ bool saveXM(UNICHAR *filenameU)
 	h.flags = audio.linearPeriodsFlag;
 	memcpy(h.orders, song.orders, 256);
 
-	if (fwrite(&h, sizeof (h), 1, f) != 1)
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapXmHdr(&h);
+#endif
+	result = fwrite(&h, sizeof (h), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapXmHdr(&h); // restore host order: h.numPatterns/h.numInstr are used as loop bounds below
+#endif
+
+	if (result != 1)
 	{
 		fclose(f);
 		okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!", NULL);
@@ -124,7 +132,13 @@ bool saveXM(UNICHAR *filenameU)
 		if (pattern[i] == NULL)
 		{
 			ph.dataSize = 0;
-			if (fwrite(&ph, ph.headerSize, 1, f) != 1)
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			swapXmPatHdr(&ph);
+#endif
+			result = fwrite(&ph, sizeof (xmPatHdr_t), 1, f);
+
+			if (result != 1)
 			{
 				fclose(f);
 				okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!", NULL);
@@ -134,9 +148,13 @@ bool saveXM(UNICHAR *filenameU)
 		else
 		{
 			ph.dataSize = packPatt(packedPattData, (uint8_t *)pattern[i], patternNumRows[i]);
+			const uint16_t dataSize = ph.dataSize; // capture before swap, needed as a plain byte count below
 
-			result = fwrite(&ph, ph.headerSize, 1, f);
-			result += fwrite(packedPattData, ph.dataSize, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			swapXmPatHdr(&ph);
+#endif
+			result = fwrite(&ph, sizeof (xmPatHdr_t), 1, f);
+			result += fwrite(packedPattData, dataSize, 1, f);
 
 			if (result != 2) // write was not OK
 			{
@@ -242,7 +260,23 @@ bool saveXM(UNICHAR *filenameU)
 			ih.instrSize = 22 + 11;
 		}
 
-		if (fwrite(&ih, ih.instrSize + (a * sizeof (xmSmpHdr_t)), 1, f) != 1)
+		const size_t writeSize = ih.instrSize + (a * sizeof (xmSmpHdr_t)); // captured before swap below
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapXmInsHdr(&ih);
+		for (k = 0; k < a; k++)
+			swapXmSmpHdr(&ih.smp[k]);
+#endif
+
+		result = fwrite(&ih, writeSize, 1, f);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapXmInsHdr(&ih);
+		for (k = 0; k < a; k++)
+			swapXmSmpHdr(&ih.smp[k]);
+#endif
+
+		if (result != 1)
 		{
 			fclose(f);
 			okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!", NULL);
@@ -257,7 +291,18 @@ bool saveXM(UNICHAR *filenameU)
 				unfixSample(s);
 				samp2Delta(s->dataPtr, s->length, s->flags);
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+				const bool sample16Bit = !!(s->flags & SAMPLE_16BIT);
+				if (sample16Bit)
+					swapSampleData16(s->dataPtr, s->length); // sample data is 16-bit deltas, stored little-endian
+#endif
+
 				result = fwrite(s->dataPtr, 1, SAMPLE_LENGTH_BYTES(s), f);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+				if (sample16Bit)
+					swapSampleData16(s->dataPtr, s->length); // restore host order before delta2Samp()
+#endif
 
 				delta2Samp(s->dataPtr, s->length, s->flags);
 				fixSample(s);

@@ -1,5 +1,4 @@
----- Guide on how to compile the FT2 clone for Windows/macOS/Linux ---
-  LINUX NOTE: The program source code is NOT big-endian compatible!
+---- Guide on how to compile the FT2 clone for Windows/macOS/Linux/IRIX ---
 
 Compiled Windows/macOS binaries are always available at 16-bits.org/ft2.php
 
@@ -40,3 +39,15 @@ Compiled Windows/macOS binaries are always available at 16-bits.org/ft2.php
  4. Compile the FT2 clone:      (folder: "ft2-clone")
     chmod +x make-macos.sh      (only needed once)
    ./make-macos.sh
+
+
+== COMPILING ON IRIX (SGUG-RSE toolchain) ==
+ 1. Install the SGUG-RSE gcc, cmake, and SDL2 packages (SDL2 2.0.12 or
+    compatible, plus SDL2_devel headers).
+ 2. Build with CMake:           (folder: "ft2-clone")
+    mkdir build && cd build
+    cmake ..
+    make
+ 3. The resulting binary will be in "release/other/ft2-clone".
+
+ Note: MIDI support (rtmidi) is disabled on IRIX.

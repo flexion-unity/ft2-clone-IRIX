@@ -157,15 +157,24 @@ static uint32_t *loadBMPTo32Bit(const uint8_t *src)
 	int32_t len, byte, palIdx;
 	uint32_t *tmp32, color, color2, pal[256];
 
-	bmpHeader_t *hdr = (bmpHeader_t *)src;
-	const uint8_t *pData = &src[hdr->bfOffBits];
-	const int32_t colorsInBitmap = 1 << hdr->biBitCount;
-	const int32_t palEntries = (hdr->biClrUsed == 0) ? colorsInBitmap : hdr->biClrUsed;
+	const bmpHeader_t *hdr = (const bmpHeader_t *)src;
 
-	if (hdr->biCompression == COMP_RGB || palEntries > 256)
+	// these embedded BMPs are always little-endian on disk/in memory; SDL_SwapLE is a no-op on LE hosts
+	const uint32_t bfOffBits = SDL_SwapLE32(hdr->bfOffBits);
+	const int32_t biWidth = (int32_t)SDL_SwapLE32((uint32_t)hdr->biWidth);
+	const int32_t biHeight = (int32_t)SDL_SwapLE32((uint32_t)hdr->biHeight);
+	const uint16_t biBitCount = SDL_SwapLE16(hdr->biBitCount);
+	const uint32_t biCompression = SDL_SwapLE32(hdr->biCompression);
+	const int32_t biClrUsed = (int32_t)SDL_SwapLE32((uint32_t)hdr->biClrUsed);
+
+	const uint8_t *pData = &src[bfOffBits];
+	const int32_t colorsInBitmap = 1 << biBitCount;
+	const int32_t palEntries = (biClrUsed == 0) ? colorsInBitmap : biClrUsed;
+
+	if (biCompression == COMP_RGB || palEntries > 256)
 		return NULL;
 
-	uint32_t *outData = (uint32_t *)malloc(hdr->biWidth * hdr->biHeight * sizeof (uint32_t));
+	uint32_t *outData = (uint32_t *)malloc(biWidth * biHeight * sizeof (uint32_t));
 	if (outData == NULL)
 		return NULL;
 
@@ -181,14 +190,14 @@ static uint32_t *loadBMPTo32Bit(const uint8_t *src)
 	}
 
 	// pre-fill image with first palette color
-	for (int32_t i = 0; i < hdr->biWidth * hdr->biHeight; i++)
+	for (int32_t i = 0; i < biWidth * biHeight; i++)
 		outData[i] = pal[0];
 
-	const int32_t lineEnd = hdr->biWidth;
+	const int32_t lineEnd = biWidth;
 	const uint8_t *src8 = pData;
 	uint32_t *dst32 = outData;
 	int32_t x = 0;
-	int32_t y = hdr->biHeight - 1;
+	int32_t y = biHeight - 1;
 
 	while (true)
 	{
@@ -212,9 +221,9 @@ static uint32_t *loadBMPTo32Bit(const uint8_t *src)
 			}
 			else // absolute bytes
 			{
-				if (hdr->biCompression == COMP_RLE8)
+				if (biCompression == COMP_RLE8)
 				{
-					tmp32 = &dst32[(y * hdr->biWidth) + x];
+					tmp32 = &dst32[(y * biWidth) + x];
 					for (int32_t i = 0; i < byte; i++)
 						*tmp32++ = pal[*src8++];
 
@@ -227,7 +236,7 @@ static uint32_t *loadBMPTo32Bit(const uint8_t *src)
 				{
 
 					len = byte >> 1;
-					tmp32 = &dst32[y * hdr->biWidth];
+					tmp32 = &dst32[y * biWidth];
 					for (int32_t i = 0; i < len; i++)
 					{
 						palIdx = *src8++;
@@ -246,10 +255,10 @@ static uint32_t *loadBMPTo32Bit(const uint8_t *src)
 		{
 			palIdx = *src8++;
 
-			if (hdr->biCompression == COMP_RLE8)
+			if (biCompression == COMP_RLE8)
 			{
 				color = pal[palIdx];
-				tmp32 = &dst32[(y * hdr->biWidth) + x];
+				tmp32 = &dst32[(y * biWidth) + x];
 				for (int32_t i = 0; i < byte; i++)
 					*tmp32++ = color;
 
@@ -261,7 +270,7 @@ static uint32_t *loadBMPTo32Bit(const uint8_t *src)
 				color2 = pal[palIdx & 0x0F];
 
 				len = byte >> 1;
-				tmp32 = &dst32[y * hdr->biWidth];
+				tmp32 = &dst32[y * biWidth];
 				for (int32_t i = 0; i < len; i++)
 				{
 					tmp32[x++] = color;
@@ -281,18 +290,27 @@ static uint8_t *loadBMPTo1Bit(const uint8_t *src) // supports 4-bit RLE only
 	int32_t len, byte;
 	uint8_t pal[16];
 
-	bmpHeader_t *hdr = (bmpHeader_t *)src;
-	const uint8_t *pData = &src[hdr->bfOffBits];
-	const int32_t colorsInBitmap = 1 << hdr->biBitCount;
-	const int32_t palEntries = (hdr->biClrUsed == 0) ? colorsInBitmap : hdr->biClrUsed;
+	const bmpHeader_t *hdr = (const bmpHeader_t *)src;
 
-	if (hdr->biCompression != COMP_RLE4 || palEntries > 16)
+	// these embedded BMPs are always little-endian on disk/in memory; SDL_SwapLE is a no-op on LE hosts
+	const uint32_t bfOffBits = SDL_SwapLE32(hdr->bfOffBits);
+	const int32_t biWidth = (int32_t)SDL_SwapLE32((uint32_t)hdr->biWidth);
+	const int32_t biHeight = (int32_t)SDL_SwapLE32((uint32_t)hdr->biHeight);
+	const uint16_t biBitCount = SDL_SwapLE16(hdr->biBitCount);
+	const uint32_t biCompression = SDL_SwapLE32(hdr->biCompression);
+	const int32_t biClrUsed = (int32_t)SDL_SwapLE32((uint32_t)hdr->biClrUsed);
+
+	const uint8_t *pData = &src[bfOffBits];
+	const int32_t colorsInBitmap = 1 << biBitCount;
+	const int32_t palEntries = (biClrUsed == 0) ? colorsInBitmap : biClrUsed;
+
+	if (biCompression != COMP_RLE4 || palEntries > 16)
 		return NULL;
 
-	uint8_t *outData = (uint8_t *)malloc(hdr->biWidth * hdr->biHeight * sizeof (uint8_t));
+	uint8_t *outData = (uint8_t *)malloc(biWidth * biHeight * sizeof (uint8_t));
 	if (outData == NULL)
 		return NULL;
-	
+
 	const uint8_t *p = (uint8_t *)&src[0x36];
 	for (int32_t i = 0; i < palEntries; i++)
 	{
@@ -305,14 +323,14 @@ static uint8_t *loadBMPTo1Bit(const uint8_t *src) // supports 4-bit RLE only
 	}
 
 	// pre-fill image with first palette color
-	for (int32_t i = 0; i < hdr->biWidth * hdr->biHeight; i++)
+	for (int32_t i = 0; i < biWidth * biHeight; i++)
 		outData[i] = pal[0];
 
-	const int32_t lineEnd = hdr->biWidth;
+	const int32_t lineEnd = biWidth;
 	const uint8_t *src8 = pData;
 	uint8_t *dst8 = outData;
 	int32_t x = 0;
-	int32_t y = hdr->biHeight - 1;
+	int32_t y = biHeight - 1;
 
 	while (true)
 	{
@@ -337,7 +355,7 @@ static uint8_t *loadBMPTo1Bit(const uint8_t *src) // supports 4-bit RLE only
 			else // absolute bytes
 			{
 				len = byte >> 1;
-				tmp8 = &dst8[y * hdr->biWidth];
+				tmp8 = &dst8[y * biWidth];
 				for (int32_t i = 0; i < len; i++)
 				{
 					palIdx = *src8++;
@@ -359,7 +377,7 @@ static uint8_t *loadBMPTo1Bit(const uint8_t *src) // supports 4-bit RLE only
 			color2 = pal[palIdx & 0x0F];
 
 			len = byte >> 1;
-			tmp8 = &dst8[y * hdr->biWidth];
+			tmp8 = &dst8[y * biWidth];
 			for (int32_t i = 0; i < len; i++)
 			{
 				tmp8[x++] = color;
@@ -378,15 +396,24 @@ static uint8_t *loadBMPTo4BitPal(const uint8_t *src) // supports 4-bit RLE only
 	int32_t len, byte;
 	uint32_t pal[16];
 
-	bmpHeader_t *hdr = (bmpHeader_t *)src;
-	const uint8_t *pData = &src[hdr->bfOffBits];
-	const int32_t colorsInBitmap = 1 << hdr->biBitCount;
-	const int32_t palEntries = (hdr->biClrUsed == 0) ? colorsInBitmap : hdr->biClrUsed;
+	const bmpHeader_t *hdr = (const bmpHeader_t *)src;
 
-	if (hdr->biCompression != COMP_RLE4 || palEntries > 16)
+	// these embedded BMPs are always little-endian on disk/in memory; SDL_SwapLE is a no-op on LE hosts
+	const uint32_t bfOffBits = SDL_SwapLE32(hdr->bfOffBits);
+	const int32_t biWidth = (int32_t)SDL_SwapLE32((uint32_t)hdr->biWidth);
+	const int32_t biHeight = (int32_t)SDL_SwapLE32((uint32_t)hdr->biHeight);
+	const uint16_t biBitCount = SDL_SwapLE16(hdr->biBitCount);
+	const uint32_t biCompression = SDL_SwapLE32(hdr->biCompression);
+	const int32_t biClrUsed = (int32_t)SDL_SwapLE32((uint32_t)hdr->biClrUsed);
+
+	const uint8_t *pData = &src[bfOffBits];
+	const int32_t colorsInBitmap = 1 << biBitCount;
+	const int32_t palEntries = (biClrUsed == 0) ? colorsInBitmap : biClrUsed;
+
+	if (biCompression != COMP_RLE4 || palEntries > 16)
 		return NULL;
 
-	uint8_t *outData = (uint8_t *)malloc(hdr->biWidth * hdr->biHeight * sizeof (uint8_t));
+	uint8_t *outData = (uint8_t *)malloc(biWidth * biHeight * sizeof (uint8_t));
 	if (outData == NULL)
 		return NULL;
 
@@ -403,14 +430,14 @@ static uint8_t *loadBMPTo4BitPal(const uint8_t *src) // supports 4-bit RLE only
 
 	// pre-fill image with first palette color
 	palIdx = getFT2PalNrFromPixel(pal[0]);
-	for (int32_t i = 0; i < hdr->biWidth * hdr->biHeight; i++)
+	for (int32_t i = 0; i < biWidth * biHeight; i++)
 		outData[i] = palIdx;
 
-	const int32_t lineEnd = hdr->biWidth;
+	const int32_t lineEnd = biWidth;
 	const uint8_t *src8 = pData;
 	uint8_t *dst8 = outData;
 	int32_t x = 0;
-	int32_t y = hdr->biHeight - 1;
+	int32_t y = biHeight - 1;
 
 	while (true)
 	{
@@ -434,7 +461,7 @@ static uint8_t *loadBMPTo4BitPal(const uint8_t *src) // supports 4-bit RLE only
 			}
 			else // absolute bytes
 			{
-				tmp8 = &dst8[y * hdr->biWidth];
+				tmp8 = &dst8[y * biWidth];
 				len = byte >> 1;
 				for (int32_t i = 0; i < len; i++)
 				{
@@ -456,7 +483,7 @@ static uint8_t *loadBMPTo4BitPal(const uint8_t *src) // supports 4-bit RLE only
 			pal1 = getFT2PalNrFromPixel(pal[palIdx >> 4]);
 			pal2 = getFT2PalNrFromPixel(pal[palIdx & 0x0F]);
 
-			tmp8 = &dst8[y * hdr->biWidth];
+			tmp8 = &dst8[y * biWidth];
 			len = byte >> 1;
 			for (int32_t i = 0; i < len; i++)
 			{
