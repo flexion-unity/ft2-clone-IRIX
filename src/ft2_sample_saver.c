@@ -45,6 +45,57 @@ typedef struct mptExtraChunk_t
 	uint8_t vibratoType, vibratoSweep, vibratoDepth, vibratoRate;
 } mptExtraChunk_t;
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapWavHeader(wavHeader_t *h)
+{
+	h->chunkID = SDL_SwapLE32(h->chunkID);
+	h->chunkSize = SDL_SwapLE32(h->chunkSize);
+	h->format = SDL_SwapLE32(h->format);
+	h->subchunk1ID = SDL_SwapLE32(h->subchunk1ID);
+	h->subchunk1Size = SDL_SwapLE32(h->subchunk1Size);
+	h->audioFormat = SDL_SwapLE16(h->audioFormat);
+	h->numChannels = SDL_SwapLE16(h->numChannels);
+	h->sampleRate = SDL_SwapLE32(h->sampleRate);
+	h->byteRate = SDL_SwapLE32(h->byteRate);
+	h->blockAlign = SDL_SwapLE16(h->blockAlign);
+	h->bitsPerSample = SDL_SwapLE16(h->bitsPerSample);
+	h->subchunk2ID = SDL_SwapLE32(h->subchunk2ID);
+	h->subchunk2Size = SDL_SwapLE32(h->subchunk2Size);
+}
+
+static inline void swapSamplerChunk(samplerChunk_t *c)
+{
+	c->chunkID = SDL_SwapLE32(c->chunkID);
+	c->chunkSize = SDL_SwapLE32(c->chunkSize);
+	c->dwManufacturer = SDL_SwapLE32(c->dwManufacturer);
+	c->dwProduct = SDL_SwapLE32(c->dwProduct);
+	c->dwSamplePeriod = SDL_SwapLE32(c->dwSamplePeriod);
+	c->dwMIDIUnityNote = SDL_SwapLE32(c->dwMIDIUnityNote);
+	c->dwMIDIPitchFraction = SDL_SwapLE32(c->dwMIDIPitchFraction);
+	c->dwSMPTEFormat = SDL_SwapLE32(c->dwSMPTEFormat);
+	c->dwSMPTEOffset = SDL_SwapLE32(c->dwSMPTEOffset);
+	c->cSampleLoops = SDL_SwapLE32(c->cSampleLoops);
+	c->cbSamplerData = SDL_SwapLE32(c->cbSamplerData);
+	c->loop.dwIdentifier = SDL_SwapLE32(c->loop.dwIdentifier);
+	c->loop.dwType = SDL_SwapLE32(c->loop.dwType);
+	c->loop.dwStart = SDL_SwapLE32(c->loop.dwStart);
+	c->loop.dwEnd = SDL_SwapLE32(c->loop.dwEnd);
+	c->loop.dwFraction = SDL_SwapLE32(c->loop.dwFraction);
+	c->loop.dwPlayCount = SDL_SwapLE32(c->loop.dwPlayCount);
+}
+
+static inline void swapMptExtraChunk(mptExtraChunk_t *c)
+{
+	c->chunkID = SDL_SwapLE32(c->chunkID);
+	c->chunkSize = SDL_SwapLE32(c->chunkSize);
+	c->flags = SDL_SwapLE32(c->flags);
+	c->defaultPan = SDL_SwapLE16(c->defaultPan);
+	c->defaultVolume = SDL_SwapLE16(c->defaultVolume);
+	c->globalVolume = SDL_SwapLE16(c->globalVolume);
+	c->reserved = SDL_SwapLE16(c->reserved);
+}
+#endif
+
 static const char *rangedDataStr = "Ranged data from FT2";
 
 // thread data
@@ -96,7 +147,20 @@ static void fileRestoreFixedSampleData(UNICHAR *filenameU, uint32_t sampleDataOf
 
 	if (sample16Bit)
 	{
-		fwrite(&s->fixedSmp[sampleFixOffset], sizeof (int16_t), samplesToWrite, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) // WAV sample data is always stored little-endian
+		{
+			for (int32_t i = 0; i < samplesToWrite; i++)
+			{
+				int16_t fixedSmp = (int16_t)SDL_SwapLE16((uint16_t)s->fixedSmp[sampleFixOffset+i]);
+				fwrite(&fixedSmp, sizeof (int16_t), 1, f);
+			}
+		}
+		else
+#endif
+		{
+			fwrite(&s->fixedSmp[sampleFixOffset], sizeof (int16_t), samplesToWrite, f);
+		}
 	}
 	else
 	{
@@ -373,13 +437,25 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	wavHeader.subchunk2Size = sampleLen << sample16Bit;
 
 	// write main header
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapWavHeader(&wavHeader);
+#endif
 	fwrite(&wavHeader, sizeof (wavHeader_t), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapWavHeader(&wavHeader); // restore host order, fields are still used below
+#endif
 
 	// write sample data
 	const uint32_t sampleDataPos = ftell(f);
 	if (sampleBitDepth == 16)
 	{
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapSampleData16(samplePtr, sampleLen); // sample data is stored little-endian
+#endif
 		fwrite((int16_t *)samplePtr, sizeof (int16_t), sampleLen, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapSampleData16(samplePtr, sampleLen); // restore host order
+#endif
 	}
 	else
 	{
@@ -404,7 +480,13 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 		samplerChunk.loop.dwStart = smp->loopStart;
 		samplerChunk.loop.dwEnd = (smp->loopStart + smp->loopLength) - 1;
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapSamplerChunk(&samplerChunk);
+#endif
 		fwrite(&samplerChunk, sizeof (samplerChunk), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapSamplerChunk(&samplerChunk); // restore host order, chunkSize is used below
+#endif
 		if (samplerChunk.chunkSize & 1)
 			fputc(0, f); // write pad byte if chunk size is uneven
 	}
@@ -425,7 +507,13 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 		mptExtraChunk.vibratoDepth = ins->autoVibDepth; // 0..15
 		mptExtraChunk.vibratoRate = ins->autoVibRate; // 0..63
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapMptExtraChunk(&mptExtraChunk);
+#endif
 		fwrite(&mptExtraChunk, sizeof (mptExtraChunk), 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapMptExtraChunk(&mptExtraChunk); // restore host order, chunkSize is used below
+#endif
 		if (mptExtraChunk.chunkSize & 1)
 			fputc(0, f); // write pad byte if chunk size is uneven
 	}
@@ -457,15 +545,25 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	if (smpNameLen > 0)
 		tmpLen += ((4 + 4) + (progNameLen + 1 + ((progNameLen + 1) & 1)));
 
+	uint32_t tmpLenLE;
+
 	fwrite("LIST", sizeof (int32_t), 1, f);
-	fwrite(&tmpLen, sizeof (int32_t), 1, f);
+	tmpLenLE = tmpLen;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	tmpLenLE = SDL_SwapLE32(tmpLenLE);
+#endif
+	fwrite(&tmpLenLE, sizeof (int32_t), 1, f);
 	fwrite("INFO", sizeof (int32_t), 1, f);
 
 	if (smpNameLen > 0)
 	{
 		tmpLen = smpNameLen + 1;
 		fwrite("INAM", sizeof (int32_t), 1, f);
-		fwrite(&tmpLen, sizeof (int32_t), 1, f);
+		tmpLenLE = tmpLen;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		tmpLenLE = SDL_SwapLE32(tmpLenLE);
+#endif
+		fwrite(&tmpLenLE, sizeof (int32_t), 1, f);
 		fwrite(smpNamePtr, 1, smpNameLen, f);
 		fputc(0, f); // string termination
 		if (tmpLen & 1)
@@ -474,7 +572,11 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 
 	tmpLen = progNameLen + 1;
 	fwrite("ISFT", sizeof (int32_t), 1, f);
-	fwrite(&tmpLen, sizeof (int32_t), 1, f);
+	tmpLenLE = tmpLen;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	tmpLenLE = SDL_SwapLE32(tmpLenLE);
+#endif
+	fwrite(&tmpLenLE, sizeof (int32_t), 1, f);
 	fwrite(PROG_NAME_STR, 1, progNameLen, f);
 	fputc(0, f); // string termination
 	if (tmpLen & 1)
@@ -483,6 +585,9 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	// go back and fill in "RIFF" chunk size
 	riffChunkSize = ftell(f) - 8;
 	fseek(f, 4, SEEK_SET);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	riffChunkSize = SDL_SwapLE32(riffChunkSize);
+#endif
 	fwrite(&riffChunkSize, sizeof (int32_t), 1, f);
 
 	fclose(f);

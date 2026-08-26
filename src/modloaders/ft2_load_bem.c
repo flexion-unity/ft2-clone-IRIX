@@ -44,6 +44,17 @@ bemHdr_t;
 #pragma pack(pop)
 #endif
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapBemHdr(bemHdr_t *h)
+{
+	h->numpos = SDL_SwapLE16(h->numpos);
+	h->reppos = SDL_SwapLE16(h->reppos);
+	h->numpat = SDL_SwapLE16(h->numpat);
+	h->numtrk = SDL_SwapLE16(h->numtrk);
+	h->numins = SDL_SwapLE16(h->numins);
+}
+#endif
+
 enum
 {
 	UNI_NOTE = 1,
@@ -87,6 +98,9 @@ static char *readString(FILE *f)
 {
 	uint16_t length;
 	fread(&length, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	length = SDL_SwapLE16(length);
+#endif
 
 	char *out = (char *)malloc(length+1);
 	if (out == NULL)
@@ -125,6 +139,9 @@ bool detectBEM(FILE *f)
 
 	uint16_t strLength = 0;
 	fread(&strLength, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	strLength = SDL_SwapLE16(strLength);
+#endif
 	if (strLength == 0 || strLength > 512)
 		goto error;
 
@@ -156,6 +173,10 @@ bool loadBEM(FILE *f, uint32_t filesize)
 
 	fread(&header, 1, sizeof (header), f);
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapBemHdr(&header);
+#endif
+
 	char *songName = readString(f);
 	if (songName == NULL)
 		return false;
@@ -164,8 +185,14 @@ bool loadBEM(FILE *f, uint32_t filesize)
 	free(songName);
 	uint16_t strLength;
 	fread(&strLength, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	strLength = SDL_SwapLE16(strLength);
+#endif
 	fseek(f, strLength, SEEK_CUR);
 	fread(&strLength, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	strLength = SDL_SwapLE16(strLength);
+#endif
 	fseek(f, strLength, SEEK_CUR);
 
 	if (header.numpos > 256 || header.numpat > 256 || header.numchn > 32 || header.numtrk > MAX_TRACKS)
@@ -203,6 +230,10 @@ bool loadBEM(FILE *f, uint32_t filesize)
 		ins->volEnvLoopStart = (uint8_t)fgetc(f);
 		ins->volEnvLoopEnd = (uint8_t)fgetc(f);
 		fread(ins->volEnvPoints, 2, 12*2, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		for (int32_t k = 0; k < 12*2; k++)
+			((uint16_t *)ins->volEnvPoints)[k] = SDL_SwapLE16(((uint16_t *)ins->volEnvPoints)[k]);
+#endif
 
 		ins->panEnvFlags = (uint8_t)fgetc(f);
 		ins->panEnvLength = (uint8_t)fgetc(f);
@@ -210,12 +241,19 @@ bool loadBEM(FILE *f, uint32_t filesize)
 		ins->panEnvLoopStart = (uint8_t)fgetc(f);
 		ins->panEnvLoopEnd = (uint8_t)fgetc(f);
 		fread(ins->panEnvPoints, 2, 12*2, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		for (int32_t k = 0; k < 12*2; k++)
+			((uint16_t *)ins->panEnvPoints)[k] = SDL_SwapLE16(((uint16_t *)ins->panEnvPoints)[k]);
+#endif
 
 		ins->autoVibType = (uint8_t)fgetc(f);
 		ins->autoVibSweep = (uint8_t)fgetc(f);
 		ins->autoVibDepth = (uint8_t)fgetc(f);
 		ins->autoVibRate = (uint8_t)fgetc(f);
 		fread(&ins->fadeout, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		ins->fadeout = SDL_SwapLE16(ins->fadeout);
+#endif
 
 		char *insName = readString(f);
 		if (insName == NULL)
@@ -240,10 +278,18 @@ bool loadBEM(FILE *f, uint32_t filesize)
 			fread(&s->loopStart, 4, 1, f);
 			uint32_t loopEnd;
 			fread(&loopEnd, 4, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			s->length = (int32_t)SDL_SwapLE32((uint32_t)s->length);
+			s->loopStart = (int32_t)SDL_SwapLE32((uint32_t)s->loopStart);
+			loopEnd = SDL_SwapLE32(loopEnd);
+#endif
 			s->loopLength = loopEnd - s->loopStart;
 
 			uint16_t flags;
 			fread(&flags, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			flags = SDL_SwapLE16(flags);
+#endif
 			if (flags &  1) s->flags |= SAMPLE_16BIT;
 			if (flags & 16) s->flags |= LOOP_FORWARD;
 			if (flags & 32) s->flags |= LOOP_PINGPONG;
@@ -267,11 +313,20 @@ bool loadBEM(FILE *f, uint32_t filesize)
 	
 	fread(rowsInPattern, 2, header.numpat, f);
 	fread(trackList, 2, header.numpat * header.numchn, f);
-	
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	for (int32_t k = 0; k < header.numpat; k++)
+		rowsInPattern[k] = SDL_SwapLE16(rowsInPattern[k]);
+	for (int32_t k = 0; k < header.numpat * header.numchn; k++)
+		trackList[k] = SDL_SwapLE16(trackList[k]);
+#endif
+
 	for (int32_t i = 0; i < header.numtrk; i++)
 	{
 		uint16_t trackBytesInFile;
 		fread(&trackBytesInFile, 2, 1, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		trackBytesInFile = SDL_SwapLE16(trackBytesInFile);
+#endif
 		if (trackBytesInFile == 0)
 		{
 			loaderMsgBox("Error loading BEM: This module is corrupt!");
@@ -395,9 +450,16 @@ trackError:
 			}
 
 			if (sampleIs16Bit)
+			{
 				fread(s->dataPtr, 2, s->length, f);
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+				swapSampleData16(s->dataPtr, s->length); // sample data is 16-bit deltas, stored little-endian
+#endif
+			}
 			else
+			{
 				fread(s->dataPtr, 1, s->length, f);
+			}
 
 			delta2Samp(s->dataPtr, s->length, s->flags);
 		}

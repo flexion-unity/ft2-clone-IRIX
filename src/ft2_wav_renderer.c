@@ -38,6 +38,42 @@ typedef struct wavHeader_t
 	uint32_t subchunk2ID, subchunk2Size;
 } wavHeader_t;
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapWavHeader(wavHeader_t *h)
+{
+	h->chunkID = SDL_SwapLE32(h->chunkID);
+	h->chunkSize = SDL_SwapLE32(h->chunkSize);
+	h->format = SDL_SwapLE32(h->format);
+	h->subchunk1ID = SDL_SwapLE32(h->subchunk1ID);
+	h->subchunk1Size = SDL_SwapLE32(h->subchunk1Size);
+	h->audioFormat = SDL_SwapLE16(h->audioFormat);
+	h->numChannels = SDL_SwapLE16(h->numChannels);
+	h->sampleRate = SDL_SwapLE32(h->sampleRate);
+	h->byteRate = SDL_SwapLE32(h->byteRate);
+	h->blockAlign = SDL_SwapLE16(h->blockAlign);
+	h->bitsPerSample = SDL_SwapLE16(h->bitsPerSample);
+	h->subchunk2ID = SDL_SwapLE32(h->subchunk2ID);
+	h->subchunk2Size = SDL_SwapLE32(h->subchunk2Size);
+}
+
+// swaps the rendered PCM chunk (int16 or float32 samples) in place before writing to disk
+static inline void swapWavRenderBuffer(uint8_t *data, uint32_t numSamples, uint8_t bitDepth)
+{
+	if (bitDepth == 16)
+	{
+		uint16_t *p = (uint16_t *)data;
+		for (uint32_t i = 0; i < numSamples; i++)
+			p[i] = SDL_SwapLE16(p[i]);
+	}
+	else
+	{
+		uint32_t *p = (uint32_t *)data;
+		for (uint32_t i = 0; i < numSamples; i++)
+			p[i] = SDL_SwapLE32(p[i]);
+	}
+}
+#endif
+
 static bool renderIndividualTracks, oldMutes[MAX_CHANNELS];
 static char *tmpFilename, newFilename[PATH_MAX+1];
 static uint8_t WDBitDepth = 16, WDStartPos, WDStopPos, *wavRenderBuffer;
@@ -264,6 +300,9 @@ static void dump_Close(FILE *f, uint32_t totalSamples)
 	wavHeader.subchunk2Size = totalBytes;
 
 	// write main header
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapWavHeader(&wavHeader);
+#endif
 	fwrite(&wavHeader, 1, sizeof (wavHeader_t), f);
 	fclose(f);
 
@@ -411,6 +450,9 @@ static int32_t renderWavThread(void *ptr)
 		// write buffer to disk
 		if (samplesInChunk > 0)
 		{
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+			swapWavRenderBuffer(wavRenderBuffer, samplesInChunk, WDBitDepth); // WAV sample data is stored little-endian
+#endif
 			if (WDBitDepth == 16)
 				fwrite(wavRenderBuffer, sizeof (int16_t), samplesInChunk, f);
 			else
@@ -584,6 +626,9 @@ static int32_t renderWavIndividualTracksThread(void *ptr)
 			// write buffer to disk
 			if (samplesInChunk > 0)
 			{
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+				swapWavRenderBuffer(wavRenderBuffer, samplesInChunk, WDBitDepth); // WAV sample data is stored little-endian
+#endif
 				if (WDBitDepth == 16)
 					fwrite(wavRenderBuffer, sizeof (int16_t), samplesInChunk, f);
 				else
@@ -633,6 +678,9 @@ static int32_t renderWavIndividualTracksThread(void *ptr)
 		wavHeader.subchunk2Size = totalBytes;
 
 		// write main header
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapWavHeader(&wavHeader);
+#endif
 		fwrite(&wavHeader, 1, sizeof (wavHeader_t), f);
 		fclose(f);
 	}

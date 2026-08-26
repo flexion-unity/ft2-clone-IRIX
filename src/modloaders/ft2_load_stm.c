@@ -48,6 +48,16 @@ stmHdr_t;
 #pragma pack(pop)
 #endif
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static inline void swapStmSmpHdr(stmSmpHdr_t *s)
+{
+	s->length = SDL_SwapLE16(s->length);
+	s->loopStart = SDL_SwapLE16(s->loopStart);
+	s->loopEnd = SDL_SwapLE16(s->loopEnd);
+	s->midCFreq = SDL_SwapLE16(s->midCFreq);
+}
+#endif
+
 static const uint8_t stmEfx[16] = { 0, 0, 11, 0, 10, 2, 1, 3, 4, 7, 0, 5, 6, 0, 0, 0 };
 
 static uint16_t stmTempoToBPM(uint8_t tempo);
@@ -193,6 +203,9 @@ bool loadSTM(FILE *f, uint32_t filesize)
 	stmSmpHdr_t *srcSmp = header.smp;
 	for (int32_t i = 0; i < 31; i++, srcSmp++)
 	{
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		swapStmSmpHdr(srcSmp);
+#endif
 		memcpy(&songTmp.instrName[1+i], srcSmp->name, 12);
 
 		if (srcSmp->length > 0)
