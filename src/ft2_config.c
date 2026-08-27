@@ -166,7 +166,17 @@ static void loadConfigFromBuffer(bool defaults)
 #endif
 
 	if (defaults)
+	{
 		config.audioFreq = DEFAULT_AUDIO_FREQ;
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		/* 
+			The default (masterVol=256) causes severe clipping/distortion on big-endian.
+			I have not found the reason (yet), so just use master volume 1 on IRIX for now. Sorry folks.
+		*/
+		config.masterVol = 1;
+#endif
+	}
 
 	if (config.audioFreq > MAX_AUDIO_FREQ)
 		config.audioFreq = MAX_AUDIO_FREQ;
