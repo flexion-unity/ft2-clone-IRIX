@@ -39,6 +39,92 @@ config_t config; // globalized
 #pragma warning(disable: 4996)
 #endif
 
+// FT2.CFG is a PC/DOS-native (little-endian) format and needs byte swapping on big-endian
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static void swapConfig(config_t *c)
+{
+	c->version = SDL_SwapLE16(c->version);
+	c->audioFreq = SDL_SwapLE32(c->audioFreq);
+	c->utEnhet = (int16_t)SDL_SwapLE16((uint16_t)c->utEnhet);
+	c->masterVol = (int16_t)SDL_SwapLE16((uint16_t)c->masterVol);
+	c->inputVol = (int16_t)SDL_SwapLE16((uint16_t)c->inputVol);
+	c->inputDev = (int16_t)SDL_SwapLE16((uint16_t)c->inputDev);
+	c->inEnhet = (int16_t)SDL_SwapLE16((uint16_t)c->inEnhet);
+	c->sbPort = (int16_t)SDL_SwapLE16((uint16_t)c->sbPort);
+	c->sbDMA = (int16_t)SDL_SwapLE16((uint16_t)c->sbDMA);
+	c->sbHiDMA = (int16_t)SDL_SwapLE16((uint16_t)c->sbHiDMA);
+	c->sbInt = (int16_t)SDL_SwapLE16((uint16_t)c->sbInt);
+	c->sbOutFilter = (int16_t)SDL_SwapLE16((uint16_t)c->sbOutFilter);
+	c->ptnLineLightStep = (int16_t)SDL_SwapLE16((uint16_t)c->ptnLineLightStep);
+	c->ptnFont = (int16_t)SDL_SwapLE16((uint16_t)c->ptnFont);
+	c->ptnAcc = (int16_t)SDL_SwapLE16((uint16_t)c->ptnAcc);
+
+	for (int32_t i = 0; i < 10; i++)
+	{
+		c->comMacro[i] = SDL_SwapLE16(c->comMacro[i]);
+		c->volMacro[i] = SDL_SwapLE16(c->volMacro[i]);
+	}
+
+	c->recQuantRes = (int16_t)SDL_SwapLE16((uint16_t)c->recQuantRes);
+	c->recMIDIChn = (int16_t)SDL_SwapLE16((uint16_t)c->recMIDIChn);
+	c->recMIDITranspVal = (int16_t)SDL_SwapLE16((uint16_t)c->recMIDITranspVal);
+	c->recMIDIVolSens = (int16_t)SDL_SwapLE16((uint16_t)c->recMIDIVolSens);
+	c->cfg_StdPalNum = (int16_t)SDL_SwapLE16((uint16_t)c->cfg_StdPalNum);
+	c->smpEd_SampleNote = (int16_t)SDL_SwapLE16((uint16_t)c->smpEd_SampleNote);
+
+	for (int32_t i = 0; i < 10; i++)
+		c->NI_HighScore[i].score = (int32_t)SDL_SwapLE32((uint32_t)c->NI_HighScore[i].score);
+
+	c->NI_NumPlayers = (int16_t)SDL_SwapLE16((uint16_t)c->NI_NumPlayers);
+	c->NI_Speed = (int16_t)SDL_SwapLE16((uint16_t)c->NI_Speed);
+	c->NI_HighScoreChecksum = (int32_t)SDL_SwapLE32((uint32_t)c->NI_HighScoreChecksum);
+
+	c->mouseType = (int16_t)SDL_SwapLE16((uint16_t)c->mouseType);
+	c->mouseAnimType = (int16_t)SDL_SwapLE16((uint16_t)c->mouseAnimType);
+	c->mouseSpeed = (int16_t)SDL_SwapLE16((uint16_t)c->mouseSpeed);
+	c->keyLayout = (int16_t)SDL_SwapLE16((uint16_t)c->keyLayout);
+	c->boostLevel = (int16_t)SDL_SwapLE16((uint16_t)c->boostLevel);
+
+	for (int32_t i = 0; i < 6; i++)
+	{
+		for (int32_t j = 0; j < 2; j++)
+		{
+			for (int32_t k = 0; k < 12; k++)
+			{
+				for (int32_t l = 0; l < 2; l++)
+					c->stdEnvPoints[i][j][k][l] = (int16_t)SDL_SwapLE16((uint16_t)c->stdEnvPoints[i][j][k][l]);
+			}
+		}
+
+		c->stdVolEnvLength[i] = SDL_SwapLE16(c->stdVolEnvLength[i]);
+		c->stdVolEnvSustain[i] = SDL_SwapLE16(c->stdVolEnvSustain[i]);
+		c->stdVolEnvLoopStart[i] = SDL_SwapLE16(c->stdVolEnvLoopStart[i]);
+		c->stdVolEnvLoopEnd[i] = SDL_SwapLE16(c->stdVolEnvLoopEnd[i]);
+		c->stdPanEnvLength[i] = SDL_SwapLE16(c->stdPanEnvLength[i]);
+		c->stdPanEnvSustain[i] = SDL_SwapLE16(c->stdPanEnvSustain[i]);
+		c->stdPanEnvLoopStart[i] = SDL_SwapLE16(c->stdPanEnvLoopStart[i]);
+		c->stdPanEnvLoopEnd[i] = SDL_SwapLE16(c->stdPanEnvLoopEnd[i]);
+		c->stdFadeout[i] = SDL_SwapLE16(c->stdFadeout[i]);
+		c->stdVibRate[i] = SDL_SwapLE16(c->stdVibRate[i]);
+		c->stdVibDepth[i] = SDL_SwapLE16(c->stdVibDepth[i]);
+		c->stdVibSweep[i] = SDL_SwapLE16(c->stdVibSweep[i]);
+		c->stdVibType[i] = SDL_SwapLE16(c->stdVibType[i]);
+		c->stdVolEnvFlags[i] = SDL_SwapLE16(c->stdVolEnvFlags[i]);
+		c->stdPanEnvFlags[i] = SDL_SwapLE16(c->stdPanEnvFlags[i]);
+	}
+
+	c->antStars = (int16_t)SDL_SwapLE16((uint16_t)c->antStars);
+	c->ptnMaxChannels = (int16_t)SDL_SwapLE16((uint16_t)c->ptnMaxChannels);
+
+	for (int32_t i = 0; i < 16; i++)
+		c->sampleRates[i] = SDL_SwapLE16(c->sampleRates[i]);
+
+	c->cfg_SortPriority = (int16_t)SDL_SwapLE16((uint16_t)c->cfg_SortPriority);
+	c->cfg_DPMIMemLimit = (int16_t)SDL_SwapLE16((uint16_t)c->cfg_DPMIMemLimit);
+}
+#endif
+
 static uint8_t configBuffer[CONFIG_FILE_SIZE];
 
 static void xorConfigBuffer(uint8_t *ptr8)
@@ -71,17 +157,29 @@ static void loadConfigFromBuffer(bool defaults)
 
 	ASSERT(sizeof(config) == CONFIG_FILE_SIZE);
 	memcpy(&config, configBuffer, CONFIG_FILE_SIZE);
+	const int32_t newChecksum = calcChecksum((uint8_t *)&config.NI_HighScore, sizeof (config.NI_HighScore));
+	if (newChecksum != (int32_t)SDL_SwapLE32((uint32_t)config.NI_HighScoreChecksum))
+		memcpy(&config.NI_HighScore, &defConfigData[636], sizeof (config.NI_HighScore));
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapConfig(&config); // convert the whole (now fully populated) struct from little-endian to host order
+#endif
 
 	if (defaults)
+	{
 		config.audioFreq = DEFAULT_AUDIO_FREQ;
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		/* 
+			The default (masterVol=256) causes severe clipping/distortion on big-endian.
+			I have not found the reason (yet), so just use master volume 1 on IRIX for now. Sorry folks.
+		*/
+		config.masterVol = 1;
+#endif
+	}
 
 	if (config.audioFreq > MAX_AUDIO_FREQ)
 		config.audioFreq = MAX_AUDIO_FREQ;
-
-	// if Nibbles highscore checksum is incorrect, load default highscores instead
-	const int32_t newChecksum = calcChecksum((uint8_t *)&config.NI_HighScore, sizeof (config.NI_HighScore));
-	if (newChecksum != config.NI_HighScoreChecksum)
-		memcpy(&config.NI_HighScore, &defConfigData[636], sizeof (config.NI_HighScore));
 
 	// sanitize Nibbles highscore names
 	for (int32_t i = 0; i < 10; i++)
@@ -414,8 +512,17 @@ bool saveConfig(bool showErrorFlag)
 	// copy over user palette
 	memcpy(config.userPal, palTable[11], sizeof (pal16) * 16);
 
+	// work on a copy so the live (host-native) config is left untouched
+	config_t configToSave = config;
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+	swapConfig(&configToSave); // convert to little-endian (on-disk) byte order
+	configToSave.NI_HighScoreChecksum = calcChecksum((uint8_t *)configToSave.NI_HighScore, sizeof (configToSave.NI_HighScore));
+	configToSave.NI_HighScoreChecksum = (int32_t)SDL_SwapLE32((uint32_t)configToSave.NI_HighScoreChecksum);
+#endif
+
 	// copy config to buffer and encrypt it
-	memcpy(configBuffer, &config, CONFIG_FILE_SIZE);
+	memcpy(configBuffer, &configToSave, CONFIG_FILE_SIZE);
 	xorConfigBuffer(configBuffer);
 
 	if (fwrite(configBuffer, 1, CONFIG_FILE_SIZE, f) != CONFIG_FILE_SIZE)
